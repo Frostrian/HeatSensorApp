@@ -3,6 +3,7 @@ using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
 using System.Text;
+using System.Timers;
 
 public class SensorCore
 {
@@ -10,7 +11,7 @@ public class SensorCore
     private MqttFactory mqttFactory;
     private SensorConfig config;
     private Action<string> logAction;
-    private System.Windows.Forms.Timer timerHeat, timerPing, timerBattery;
+    private System.Timers.Timer timerHeat, timerPing, timerBattery;
     private bool authenticated = false;
 
     public SensorCore(SensorConfig cfg, Action<string> logCallback)
@@ -86,19 +87,31 @@ public class SensorCore
 
     private void StartDataTimers()
     {
-        timerHeat = new System.Windows.Forms.Timer();
-        timerHeat.Interval = 5 * 60 * 1000; // 5 dakika
-        timerHeat.Tick += async (s, e) => await SendHeat();
+        timerHeat = new System.Timers.Timer(10000);
+        timerHeat.Elapsed += async (s, e) =>
+        {
+            logAction("🔥 Heat Timer Tick!");
+            await SendHeat();
+        };
+        timerHeat.AutoReset = true;
         timerHeat.Start();
 
-        timerPing = new System.Windows.Forms.Timer();
-        timerPing.Interval = 305000; // 5 dk + 4.5sn
-        timerPing.Tick += async (s, e) => await SendPing();
+        timerPing = new System.Timers.Timer(10000);
+        timerPing.Elapsed += async (s, e) =>
+        {
+            logAction("📡 Ping Timer Tick!");
+            await SendPing();
+        };
+        timerPing.AutoReset = true;
         timerPing.Start();
 
-        timerBattery = new System.Windows.Forms.Timer();
-        timerBattery.Interval = 600000; // 10 dk'da 1 batarya update
-        timerBattery.Tick += async (s, e) => await SendBattery();
+        timerBattery = new System.Timers.Timer(10000);
+        timerBattery.Elapsed += async (s, e) =>
+        {
+            logAction("🔋 Battery Timer Tick!");
+            await SendBattery();
+        };
+        timerBattery.AutoReset = true;
         timerBattery.Start();
     }
 
@@ -106,51 +119,73 @@ public class SensorCore
     {
         if (!authenticated || !mqttClient.IsConnected) return;
 
-        double temp = new Random().Next(200, 350) / 10.0;
-        var msg = $"{{\"deviceId\":\"{config.DeviceId}\",\"temperature\":{temp},\"timestamp\":\"{DateTime.Now:O}\"}}";
+        try
+        {
+            double temp = new Random().Next(200, 350) / 10.0;
+            var msg = $"{{\"deviceId\":\"{config.DeviceId}\",\"temperature\":{temp},\"timestamp\":\"{DateTime.Now:O}\"}}";
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic($"sensor/{config.DeviceId}/heat")
-            .WithPayload(msg)
-            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-            .Build();
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic($"sensor/{config.DeviceId}/heat")
+                .WithPayload(msg)
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
 
-        await mqttClient.PublishAsync(message);
-        logAction("🌡 Isı bilgisi gönderildi.");
+            await mqttClient.PublishAsync(message);
+            logAction("🌡 Isı bilgisi gönderildi.");
+        }
+        catch (Exception ex)
+        {
+            logAction("❌ Isı gönderme hatası: " + ex.Message);
+        }
     }
 
     private async Task SendPing()
     {
         if (!authenticated || !mqttClient.IsConnected) return;
 
-        var msg = $"{{\"deviceId\":\"{config.DeviceId}\",\"type\":\"ping\",\"timestamp\":\"{DateTime.Now:O}\"}}";
+        try
+        {
+            var msg = $"{{\"deviceId\":\"{config.DeviceId}\",\"type\":\"ping\",\"timestamp\":\"{DateTime.Now:O}\"}}";
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic($"sensor/{config.DeviceId}/ping")
-            .WithPayload(msg)
-            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-            .Build();
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic($"sensor/{config.DeviceId}/ping")
+                .WithPayload(msg)
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
 
-        await mqttClient.PublishAsync(message);
-        logAction("📶 Ping gönderildi.");
+            await mqttClient.PublishAsync(message);
+            logAction("📶 Ping gönderildi.");
+        }
+        catch (Exception ex)
+        {
+
+            logAction("❌ ping gönderme hatası: " + ex.Message);
+        }
     }
 
     private async Task SendBattery()
     {
         if (!authenticated || !mqttClient.IsConnected) return;
+        try
+        {
 
-        int battery = new Random().Next(70, 100); // sabit tutabiliriz sonra azaltmalı yaparız
+            int battery = new Random().Next(70, 100); // sabit tutabiliriz sonra azaltmalı yaparız
 
-        var msg = $"{{\"deviceId\":\"{config.DeviceId}\",\"battery\":{battery},\"timestamp\":\"{DateTime.Now:O}\"}}";
+            var msg = $"{{\"deviceId\":\"{config.DeviceId}\",\"battery\":{battery},\"timestamp\":\"{DateTime.Now:O}\"}}";
 
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic($"sensor/{config.DeviceId}/battery")
-            .WithPayload(msg)
-            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-            .Build();
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic($"sensor/{config.DeviceId}/battery")
+                .WithPayload(msg)
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
 
-        await mqttClient.PublishAsync(message);
-        logAction("🔋 Pil bilgisi gönderildi.");
+            await mqttClient.PublishAsync(message);
+            logAction("🔋 Pil bilgisi gönderildi.");
+        }
+        catch (Exception ex)
+        {
+            logAction("❌ Pil gönderme hatası: " + ex.Message);
+        }
     }
 
     private class AuthResponse

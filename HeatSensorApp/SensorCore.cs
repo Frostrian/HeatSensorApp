@@ -87,16 +87,8 @@ public class SensorCore
 
     private void StartDataTimers()
     {
-        timerHeat = new System.Timers.Timer(10000);
-        timerHeat.Elapsed += async (s, e) =>
-        {
-            logAction("🔥 Heat Timer Tick!");
-            await SendHeat();
-        };
-        timerHeat.AutoReset = true;
-        timerHeat.Start();
 
-        timerPing = new System.Timers.Timer(10000);
+        timerPing = new System.Timers.Timer(25000);
         timerPing.Elapsed += async (s, e) =>
         {
             logAction("📡 Ping Timer Tick!");
@@ -105,7 +97,17 @@ public class SensorCore
         timerPing.AutoReset = true;
         timerPing.Start();
 
-        timerBattery = new System.Timers.Timer(10000);
+        timerHeat = new System.Timers.Timer(50000);
+        timerHeat.Elapsed += async (s, e) =>
+        {
+            logAction("🔥 Heat Timer Tick!");
+            await SendHeat();
+        };
+        timerHeat.AutoReset = true;
+        timerHeat.Start();
+
+
+        timerBattery = new System.Timers.Timer(100000);
         timerBattery.Elapsed += async (s, e) =>
         {
             logAction("🔋 Battery Timer Tick!");
